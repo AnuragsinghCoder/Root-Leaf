@@ -24,6 +24,7 @@ import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 
+
 const AppRouter = () => {
   return (
     <Routes>
