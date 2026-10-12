@@ -23,7 +23,12 @@ import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
-
+import AboutPage from "../pages/AboutPage";
+import ContactPage from "../pages/ContactPage";
+import FAQPage from "../pages/FAQPage";
+import ShippingReturnsPage from "../pages/ShippingReturnsPage";
+import PrivacyPolicyPage from "../pages/PrivacyPolicyPage";
+import TermsPage from "../pages/TermsPage";
 
 const AppRouter = () => {
   return (
@@ -31,6 +36,12 @@ const AppRouter = () => {
       <Route element={<MainLayout />}>
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/shipping-returns" element={<ShippingReturnsPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/:id" element={<ProductDetailsPage />} />
         <Route path="/login" element={<LoginPage />} />

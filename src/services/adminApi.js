@@ -25,11 +25,13 @@ const deleteProduct = (id) =>
 // Confirm these two paths and the request body against your order router.
 const getAdminOrders = () => apiClient("/orders/admin/all");
 
-const updateOrderStatus = (id, orderStatus) =>
-  apiClient(`/orders/${encodeURIComponent(id)}/status`, {
+
+const updateOrderStatus = (id, status) =>
+  apiClient(`/orders/admin/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ orderStatus }),
+    body: JSON.stringify({ status }),
   });
+
 
 export default {
   getProducts,

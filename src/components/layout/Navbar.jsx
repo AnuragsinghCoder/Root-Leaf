@@ -134,6 +134,14 @@ function Navbar() {
       >
         Shop All
       </NavLink>
+      
+      <NavLink
+        to="/about"
+        onClick={handleNavigation}
+        className={navLinkClass}
+      >
+        About
+      </NavLink>
     </>
   );
 
