@@ -5,43 +5,45 @@ import { Link } from "react-router-dom";
 import ProductCard from "../components/product/ProductCard";
 import productApi from "../services/productApi";
 
+import categoryApi from "../services/categoryApi";
+import { getList } from "../utils/adminResponse";
 
-const CATEGORY_IMAGE_BY_KEYWORD = [
-  {
-    keywords: ["tea", "herbal", "drink", "beverage"],
-    image:
-      "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    keywords: ["skin", "beauty", "personal care", "cosmetic"],
-    image:
-      "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    keywords: ["fruit", "vegetable", "produce", "fresh"],
-    image:
-      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
-  },
-  {
-    keywords: ["food", "grocery", "grain", "pantry", "snack"],
-    image:
-      "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=700&q=80",
-  },
-];
 
-const DEFAULT_CATEGORY_IMAGE =
-  "https://images.unsplash.com/photo-1518843875459-f738682238a6?auto=format&fit=crop&w=700&q=80";
+function CategoryImage({ category }) {
+  const imageUrl = Array.isArray(category.images)
+    ? category.images.find(
+        (image) => typeof image === "string" && image.trim()
+      )
+    : typeof category.images === "string"
+      ? category.images.trim()
+      : "";
 
-function getCategoryImage(categoryName = "") {
-  const normalizedName = categoryName.toLowerCase();
+  const [imageFailed, setImageFailed] = useState(false);
 
-  const match = CATEGORY_IMAGE_BY_KEYWORD.find(({ keywords }) =>
-    keywords.some((keyword) => normalizedName.includes(keyword))
+  if (!imageUrl || imageFailed) {
+    return (
+      <div
+        className="flex aspect-[4/3] w-full items-center justify-center bg-[#E8EDDF] px-4 text-center sm:aspect-[4/5]"
+        role="img"
+        aria-label={`${category.name}, category image unavailable`}
+      >
+        <span className="max-w-full break-words font-serif text-xl font-medium text-[#31583B] sm:text-2xl">
+          {category.name}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={category.name}
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+      className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:aspect-[4/5]"
+    />
   );
-
-  return match?.image || DEFAULT_CATEGORY_IMAGE;
 }
-
 
 const benefits = [
   {
@@ -106,26 +108,7 @@ function extractProducts(response) {
   return [];
 }
 
-function getUniqueCategories(products) {
-  const uniqueCategories = new Map();
 
-  products.forEach((product) => {
-    const category = product?.category;
-
-    if (
-      category &&
-      category._id &&
-      typeof category.name === "string" &&
-      category.name.trim()
-    ) {
-      if (!uniqueCategories.has(category._id)) {
-        uniqueCategories.set(category._id, category);
-      }
-    }
-  });
-
-  return Array.from(uniqueCategories.values());
-}
 
 function HomePage() {
   const [products, setProducts] = useState([]);
@@ -156,25 +139,19 @@ function HomePage() {
     }
   }, []);
 
-  const loadCategories = useCallback(async () => {
-    setCategoriesLoading(true);
+const loadCategories = useCallback(async () => {
+  setCategoriesLoading(true);
 
-    try {
-      // Discover categories using the existing product API.
-      // The backend currently allows up to 50 products per request.
-      const response = await productApi.getProducts({
-        sort: "-createdAt",
-        page: 1,
-        limit: 50,
-      });
-
-      setCategories(getUniqueCategories(extractProducts(response)));
-    } catch {
-      setCategories([]);
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }, []);
+  try {
+    const response = await categoryApi.getCategories();
+    setCategories(getList(response, "categories"));
+  } catch (err) {
+    console.error("Could not load categories:", err);
+    setCategories([]);
+  } finally {
+    setCategoriesLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadLatestProducts();
@@ -327,46 +304,59 @@ function HomePage() {
               </div>
             ))}
           </div>
-        ) : categories.length > 0 ? (
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-11 sm:gap-5 lg:grid-cols-4">
-            {categories.map((category, index) => (
-              <Link
-                key={category._id}
-                to={`/products?category=${encodeURIComponent(category._id)}`}
-                className="group min-w-0 overflow-hidden rounded-2xl border border-[#E9E5D9] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#315B3C]"
-              >
-                <div className="overflow-hidden bg-[#F0EDE2]">
-                  <img
-                    src={getCategoryImage(category.name)}
-                    alt={category.name}
-                    loading="lazy"
-                    className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:aspect-[4/5]"
-                  />
-                </div>
 
-                <div className="p-3 sm:p-5">
-                  <h3 className="break-words font-semibold leading-snug text-[#2E5037] sm:text-lg">
-                    {category.name}
-                  </h3>
-
-                  <p className="mt-2 text-xs leading-5 text-[#7A8376] sm:text-sm">
-                    Explore our {category.name.toLowerCase()} collection.
-                  </p>
-
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#27804B] sm:text-sm">
-                    Explore collection
-                    <span
-                      aria-hidden="true"
-                      className="transition-transform duration-200 group-hover:translate-x-1"
+            ) : categories.length > 0 ? (
+              <>
+                <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-11 sm:gap-5 lg:grid-cols-4">
+                  {categories.slice(0, 8).map((category, index) => (
+                    <Link
+                      key={category._id}
+                      to={`/products?category=${encodeURIComponent(category._id)}`}
+                      className={`group min-w-0 overflow-hidden rounded-2xl border border-[#E9E5D9] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#315B3C] ${
+                        index >= 4 ? "hidden lg:block" : ""
+                      }`}
                     >
-                      →
-                    </span>
-                  </span>
+                      <div className="overflow-hidden bg-[#E8EDDF]">
+                        <CategoryImage category={category} />
+                      </div>
+
+                      <div className="p-3 sm:p-5">
+                        <h3 className="break-words font-semibold leading-snug text-[#2E5037] sm:text-lg">
+                          {category.name}
+                        </h3>
+
+                        <p className="mt-2 text-xs leading-5 text-[#7A8376] sm:text-sm">
+                          Explore our {category.name.toLowerCase()} collection.
+                        </p>
+
+                        <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#27804B] sm:text-sm">
+                          Explore collection
+                          <span
+                            aria-hidden="true"
+                            className="transition-transform duration-200 group-hover:translate-x-1"
+                          >
+                            →
+                          </span>
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
+
+                {categories.length > 4 && (
+                  <div className="mt-8 text-center">
+                    <Link
+                      to="/categories"
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#245333] px-7 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#183E27] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#315B3C]"
+                    >
+                      View all categories
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                )}
+              </>
+            ) : (
+
           <div className="mt-8 rounded-2xl border border-dashed border-[#D5DDCF] bg-white/70 px-5 py-10 text-center sm:mt-11">
             <h3 className="font-semibold text-[#244B31]">
               Categories are coming soon

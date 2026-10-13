@@ -5,10 +5,12 @@ import ProtectedRoute from "./ProtectedRoute";
 
 import HomePage from "../pages/HomePage";
 import ProductsPage from "../pages/ProductsPage";
+import CategoriesPage from "../pages/CategoriesPage";
 import ProductDetailsPage from "../pages/ProductDetailsPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import NotFoundPage from "../pages/NotFoundPage";
+
 
 import ProfilePage from "../pages/account/ProfilePage";
 import CartPage from "../pages/account/CartPage";
@@ -23,6 +25,7 @@ import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
+import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AboutPage from "../pages/AboutPage";
 import ContactPage from "../pages/ContactPage";
 import FAQPage from "../pages/FAQPage";
@@ -44,6 +47,7 @@ const AppRouter = () => {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/:id" element={<ProductDetailsPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
@@ -61,6 +65,7 @@ const AppRouter = () => {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
               <Route path="products" element={<AdminProductsPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="users" element={<AdminUsersPage />} />
             </Route>

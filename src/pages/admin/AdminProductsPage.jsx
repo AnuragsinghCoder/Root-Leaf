@@ -1,8 +1,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import adminApi from "../../services/adminApi";
+import categoryApi from "../../services/categoryApi";
 import { getList, unwrapResponse } from "../../utils/adminResponse";
-
 const emptyForm = {
   name: "",
   slug: "",
@@ -12,15 +12,12 @@ const emptyForm = {
   images: "",
   stock: "",
 };
-
 const inputClassName =
   "mt-2 block w-full rounded-xl border border-[#DADDD1] bg-[#FDFCF8] px-3.5 py-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 hover:border-[#A9B9A2] focus:border-[#47644B] focus:ring-4 focus:ring-[#47644B]/10";
-
 function getProduct(response) {
   const payload = unwrapResponse(response);
   return payload?.product ?? payload?.data?.product ?? payload;
 }
-
 function formatCurrency(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -28,50 +25,41 @@ function formatCurrency(amount) {
     maximumFractionDigits: 2,
   }).format((Number(amount) || 0) / 100);
 }
-
 function getImageList(images) {
   if (Array.isArray(images)) {
     return images.filter(
       (image) => typeof image === "string" && image.trim()
     );
   }
-
   return [];
 }
-
 function getStockStatus(product) {
   const stock = Number(product.stock);
-
   if (!product.isActive) {
     return {
       label: "Inactive",
       className: "border-stone-200 bg-stone-100 text-stone-600",
     };
   }
-
   if (!Number.isFinite(stock) || stock <= 0) {
     return {
       label: "Out of stock",
       className: "border-red-200 bg-red-50 text-red-700",
     };
   }
-
   if (stock <= 5) {
     return {
       label: "Low stock",
       className: "border-amber-200 bg-amber-50 text-amber-800",
     };
   }
-
   return {
     label: "In stock",
     className: "border-emerald-200 bg-emerald-50 text-emerald-800",
   };
 }
-
 function StatusBadge({ product }) {
   const status = getStockStatus(product);
-
   return (
     <span
       className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}
@@ -80,16 +68,13 @@ function StatusBadge({ product }) {
     </span>
   );
 }
-
 function ProductImage({ product, className = "" }) {
   const images = getImageList(product.images);
   const [imageFailed, setImageFailed] = useState(false);
   const image = images[0];
-
   useEffect(() => {
     setImageFailed(false);
   }, [image]);
-
   if (!image || imageFailed) {
     return (
       <div
@@ -100,7 +85,6 @@ function ProductImage({ product, className = "" }) {
       </div>
     );
   }
-
   return (
     <img
       src={image}
@@ -111,7 +95,6 @@ function ProductImage({ product, className = "" }) {
     />
   );
 }
-
 function FormField({ label, name, value, onChange, ...props }) {
   return (
     <label className="block text-sm font-medium text-[#344936]" htmlFor={name}>
@@ -127,7 +110,6 @@ function FormField({ label, name, value, onChange, ...props }) {
     </label>
   );
 }
-
 function ProductSkeleton() {
   return (
     <div
@@ -145,9 +127,11 @@ function ProductSkeleton() {
     </div>
   );
 }
-
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [categoryError, setCategoryError] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,11 +142,9 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
-
   const loadProducts = useCallback(async () => {
     setLoading(true);
     setError("");
-
     try {
       const response = await adminApi.getProducts({ limit: "50" });
       setProducts(getList(response, "products"));
@@ -172,20 +154,31 @@ export default function AdminProductsPage() {
       setLoading(false);
     }
   }, []);
+  const loadCategories = useCallback(async () => {
+    setCategoryLoading(true);
+    setCategoryError("");
+
+    try {
+      const response = await categoryApi.getAllCategories();
+      setCategories(getList(response, "categories"));
+    } catch (err) {
+      setCategoryError(err.message || "Could not load categories.");
+    } finally {
+      setCategoryLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadProducts();
-  }, [loadProducts]);
-
+    loadCategories();
+  }, [loadProducts, loadCategories]);
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
-
     return products.filter((product) => {
       const matchesSearch =
         !query ||
         [product.name, product.slug, product.description]
           .some((value) => String(value || "").toLowerCase().includes(query));
-
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && product.isActive) ||
@@ -193,14 +186,11 @@ export default function AdminProductsPage() {
         (statusFilter === "low-stock" &&
           product.isActive &&
           Number(product.stock) <= 5);
-
       return matchesSearch && matchesStatus;
     });
   }, [products, search, statusFilter]);
-
   const summary = useMemo(() => {
     const activeProducts = products.filter((product) => product.isActive);
-
     return {
       total: products.length,
       active: activeProducts.length,
@@ -210,14 +200,12 @@ export default function AdminProductsPage() {
       inactive: products.filter((product) => !product.isActive).length,
     };
   }, [products]);
-
   const previewImage = useMemo(() => {
     return form.images
       .split("\n")
       .map((image) => image.trim())
       .find(Boolean);
   }, [form.images]);
-
   function startCreate() {
     setEditingId(null);
     setForm(emptyForm);
@@ -225,7 +213,6 @@ export default function AdminProductsPage() {
     setSuccess("");
     setShowForm(true);
   }
-
   function startEdit(product) {
     setEditingId(product._id);
     setForm({
@@ -237,35 +224,28 @@ export default function AdminProductsPage() {
       images: getImageList(product.images).join("\n"),
       stock: String(product.stock ?? ""),
     });
-
     setError("");
     setSuccess("");
     setShowForm(true);
   }
-
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
     setShowForm(false);
   }
-
   function handleChange(event) {
     const { name, value } = event.target;
-
     setForm((current) => ({
       ...current,
       [name]: value,
     }));
   }
-
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setSuccess("");
-
     const price = Number(form.price);
     const stock = Number(form.stock);
-
     if (
       !form.name.trim() ||
       !form.slug.trim() ||
@@ -278,11 +258,10 @@ export default function AdminProductsPage() {
       stock < 0
     ) {
       setError(
-        "Enter a name, slug, category ID, whole-number price in paise, and non-negative whole-number stock."
+        "Enter a name, slug, category, whole-number price in paise, and non-negative whole-number stock."
       );
       return;
     }
-
     const product = {
       name: form.name.trim(),
       slug: form.slug.trim(),
@@ -295,9 +274,7 @@ export default function AdminProductsPage() {
         .filter(Boolean),
       stock,
     };
-
     setSaving(true);
-
     try {
       if (editingId) {
         await adminApi.updateProduct(editingId, product);
@@ -306,7 +283,6 @@ export default function AdminProductsPage() {
         await adminApi.createProduct(product);
         setSuccess("Product created successfully.");
       }
-
       resetForm();
       await loadProducts();
     } catch (err) {
@@ -315,16 +291,13 @@ export default function AdminProductsPage() {
       setSaving(false);
     }
   }
-
   async function handleDeactivate(product) {
     if (!window.confirm(`Deactivate "${product.name}"?`)) {
       return;
     }
-
     setError("");
     setSuccess("");
     setDeactivatingId(product._id);
-
     try {
       await adminApi.deleteProduct(product._id);
       setSuccess("Product deactivated successfully.");
@@ -335,7 +308,6 @@ export default function AdminProductsPage() {
       setDeactivatingId(null);
     }
   }
-
   return (
     <section className="min-w-0 space-y-7 text-stone-800">
       {/* Page header */}
@@ -345,17 +317,14 @@ export default function AdminProductsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#71816A]">
               Root & Leaf · Catalog
             </p>
-
             <h1 className="mt-3 font-serif text-3xl font-semibold tracking-tight text-[#263F2B] sm:text-4xl">
               Product management
             </h1>
-
             <p className="mt-3 max-w-xl text-sm leading-6 text-stone-600">
               Manage your products, maintain stock information, and keep your
               storefront catalog up to date.
             </p>
           </div>
-
           <button
             type="button"
             onClick={startCreate}
@@ -366,7 +335,6 @@ export default function AdminProductsPage() {
           </button>
         </div>
       </header>
-
       {/* Feedback messages */}
       {error && (
         <div
@@ -374,7 +342,6 @@ export default function AdminProductsPage() {
           className="flex flex-col justify-between gap-3 rounded-2xl border border-red-200 bg-white p-4 sm:flex-row sm:items-center"
         >
           <p className="text-sm leading-6 text-red-700">{error}</p>
-
           {!loading && (
             <button
               type="button"
@@ -386,14 +353,12 @@ export default function AdminProductsPage() {
           )}
         </div>
       )}
-
       {success && (
         <div
           role="status"
           className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
         >
           <p className="text-sm font-medium text-emerald-800">{success}</p>
-
           <button
             type="button"
             onClick={() => setSuccess("")}
@@ -404,7 +369,6 @@ export default function AdminProductsPage() {
           </button>
         </div>
       )}
-
       {/* Catalog statistics */}
       <section aria-label="Catalog overview" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
@@ -437,7 +401,6 @@ export default function AdminProductsPage() {
               <p className="text-xs font-medium leading-5 text-stone-500 sm:text-sm">
                 {item.label}
               </p>
-
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EAF0E5] text-sm font-semibold text-[#31583B]"
                 aria-hidden="true"
@@ -445,14 +408,12 @@ export default function AdminProductsPage() {
                 {item.icon}
               </span>
             </div>
-
             <p className="mt-3 text-2xl font-semibold text-[#263F2B] sm:text-3xl">
               {item.value}
             </p>
           </article>
         ))}
       </section>
-
       {/* Create/edit form */}
       {showForm && (
         <section
@@ -464,16 +425,13 @@ export default function AdminProductsPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#71816A]">
                 Catalog editor
               </p>
-
               <h2 className="mt-1 font-serif text-2xl font-semibold text-[#263F2B]">
                 {editingId ? "Edit product" : "Create a product"}
               </h2>
-
               <p className="mt-2 text-sm text-stone-500">
                 Fields and payload are kept compatible with your current API.
               </p>
             </div>
-
             <button
               type="button"
               onClick={resetForm}
@@ -484,7 +442,6 @@ export default function AdminProductsPage() {
               Close
             </button>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
             <div className="grid gap-5 sm:grid-cols-2">
               <FormField
@@ -495,7 +452,6 @@ export default function AdminProductsPage() {
                 placeholder="e.g. Organic Tulsi Tea"
                 required
               />
-
               <FormField
                 label="Product slug *"
                 name="slug"
@@ -504,7 +460,6 @@ export default function AdminProductsPage() {
                 placeholder="organic-tulsi-tea"
                 required
               />
-
               <FormField
                 label="Price in paise *"
                 name="price"
@@ -517,16 +472,65 @@ export default function AdminProductsPage() {
                 placeholder="e.g. 24900 for ₹249"
                 required
               />
+              <label
+                htmlFor="category"
+                className="block text-sm font-medium text-[#344936]"
+              >
+                Category *
+                <select
+                  id="category"
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  required
+                  disabled={
+                    categoryLoading ||
+                    Boolean(categoryError) ||
+                    (!editingId && !categories.some((category) => category.isActive))
+                  }
+                  className={inputClassName}
+                >
+                  <option value="">
+                    {categoryLoading
+                      ? "Loading categories..."
+                      : categoryError
+                        ? "Categories unavailable"
+                        : categories.length === 0
+                          ? "No categories available"
+                          : "Select a category"}
+                  </option>
 
-              <FormField
-                label="Category ID *"
-                name="category"
-                value={form.category}
-                onChange={handleChange}
-                placeholder="Enter an existing category ID"
-                required
-              />
+                  {categories
+                    .filter(
+                      (category) =>
+                        category.isActive || category._id === form.category
+                    )
+                    .map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                        {!category.isActive ? " (Inactive)" : ""}
+                      </option>
+                    ))}
+                </select>
 
+                {categoryError ? (
+                  <span className="mt-2 block text-sm text-red-700" role="alert">
+                    {categoryError}{" "}
+                    <button
+                      type="button"
+                      onClick={loadCategories}
+                      className="font-semibold underline underline-offset-2"
+                    >
+                      Retry
+                    </button>
+                  </span>
+                ) : !categoryLoading &&
+                  categories.filter((category) => category.isActive).length === 0 ? (
+                  <span className="mt-2 block text-sm text-amber-800">
+                    No active categories are available. Create or activate a category first.
+                  </span>
+                ) : null}
+              </label>
               <FormField
                 label="Stock quantity *"
                 name="stock"
@@ -539,12 +543,10 @@ export default function AdminProductsPage() {
                 placeholder="Available units"
                 required
               />
-
               <div className="rounded-xl border border-[#E5E2D7] bg-[#FAF8F2] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">
                   Price preview
                 </p>
-
                 <p className="mt-2 text-2xl font-semibold text-[#263F2B]">
                   {form.price.trim() !== "" &&
                   Number.isInteger(Number(form.price)) &&
@@ -552,13 +554,11 @@ export default function AdminProductsPage() {
                     ? formatCurrency(Number(form.price))
                     : "—"}
                 </p>
-
                 <p className="mt-1 text-xs text-stone-500">
                   100 paise = ₹1
                 </p>
               </div>
             </div>
-
             <label
               htmlFor="description"
               className="block text-sm font-medium text-[#344936]"
@@ -574,7 +574,6 @@ export default function AdminProductsPage() {
                 className={`${inputClassName} resize-y`}
               />
             </label>
-
             <div>
               <label
                 htmlFor="images"
@@ -582,12 +581,10 @@ export default function AdminProductsPage() {
               >
                 Product image URLs
               </label>
-
               <p className="mt-1 text-xs leading-5 text-stone-500">
                 Enter one image URL per line. This form preserves your existing
                 URL-based image workflow; it does not upload local files.
               </p>
-
               <textarea
                 id="images"
                 name="images"
@@ -597,7 +594,6 @@ export default function AdminProductsPage() {
                 placeholder={"https://example.com/product-image.jpg\nhttps://example.com/another-image.jpg"}
                 className={`${inputClassName} resize-y font-mono text-xs`}
               />
-
               {previewImage && (
                 <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#E5E2D7] bg-[#FAF8F2] p-3">
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[#E5E2D7] bg-white">
@@ -610,12 +606,10 @@ export default function AdminProductsPage() {
                       className="h-full w-full object-cover"
                     />
                   </div>
-
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#263F2B]">
                       First image preview
                     </p>
-
                     <p className="mt-1 break-all text-xs leading-5 text-stone-500">
                       {previewImage}
                     </p>
@@ -623,7 +617,6 @@ export default function AdminProductsPage() {
                 </div>
               )}
             </div>
-
             <div className="flex flex-col-reverse gap-3 border-t border-stone-100 pt-5 sm:flex-row sm:justify-end">
               <button
                 type="button"
@@ -633,10 +626,14 @@ export default function AdminProductsPage() {
               >
                 Cancel
               </button>
-
               <button
                 type="submit"
-                disabled={saving}
+                disabled={
+                  saving ||
+                  categoryLoading ||
+                  Boolean(categoryError) ||
+                  (!editingId && !categories.some((category) => category.isActive))
+                }
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#31583B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#25462E] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#31583B] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving
@@ -649,7 +646,6 @@ export default function AdminProductsPage() {
           </form>
         </section>
       )}
-
       {/* Product list */}
       <section className="overflow-hidden rounded-2xl border border-[#E5E2D7] bg-white">
         <div className="space-y-4 border-b border-[#E5E2D7] p-5 sm:p-6">
@@ -657,12 +653,10 @@ export default function AdminProductsPage() {
             <h2 className="font-serif text-2xl font-semibold text-[#263F2B]">
               Your catalog
             </h2>
-
             <p className="mt-1 text-sm text-stone-500">
               Review product details, prices, inventory, and status.
             </p>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px]">
             <label className="block">
               <span className="sr-only">Search products</span>
@@ -674,7 +668,6 @@ export default function AdminProductsPage() {
                 className={inputClassName}
               />
             </label>
-
             <label className="block">
               <span className="sr-only">Filter products by status</span>
               <select
@@ -689,7 +682,6 @@ export default function AdminProductsPage() {
               </select>
             </label>
           </div>
-
           {!loading && (
             <p className="text-xs text-stone-500">
               Showing {filteredProducts.length} of {products.length} loaded
@@ -697,7 +689,6 @@ export default function AdminProductsPage() {
             </p>
           )}
         </div>
-
         {loading ? (
           <div
             className="space-y-3 p-5 sm:p-6"
@@ -714,7 +705,6 @@ export default function AdminProductsPage() {
             <p className="text-sm text-stone-600">
               The product catalog could not be loaded.
             </p>
-
             <button
               type="button"
               onClick={loadProducts}
@@ -728,19 +718,16 @@ export default function AdminProductsPage() {
             <span className="text-3xl" aria-hidden="true">
               🌿
             </span>
-
             <h3 className="mt-4 font-semibold text-[#263F2B]">
               {products.length === 0
                 ? "Your catalog is empty"
                 : "No matching products"}
             </h3>
-
             <p className="mt-2 text-sm text-stone-500">
               {products.length === 0
                 ? "Create your first product to start building the catalog."
                 : "Try another search term or change the status filter."}
             </p>
-
             {products.length === 0 && (
               <button
                 type="button"
@@ -764,22 +751,18 @@ export default function AdminProductsPage() {
                         className="h-full w-full"
                       />
                     </div>
-
                     <div className="min-w-0 flex-1">
                       <h3 className="break-words text-sm font-semibold text-[#263F2B]">
                         {product.name}
                       </h3>
-
                       <p className="mt-1 break-all text-xs text-stone-500">
                         {product.slug}
                       </p>
-
                       <p className="mt-2 text-sm font-semibold text-[#31583B]">
                         {formatCurrency(product.price)}
                       </p>
                     </div>
                   </div>
-
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-xs text-stone-500">Stock</p>
@@ -787,10 +770,8 @@ export default function AdminProductsPage() {
                         {product.stock} units
                       </p>
                     </div>
-
                     <StatusBadge product={product} />
                   </div>
-
                   <div className="flex flex-wrap gap-4 border-t border-stone-100 pt-3">
                     <button
                       type="button"
@@ -799,7 +780,6 @@ export default function AdminProductsPage() {
                     >
                       Edit product
                     </button>
-
                     {product.isActive && (
                       <button
                         type="button"
@@ -816,7 +796,6 @@ export default function AdminProductsPage() {
                 </article>
               ))}
             </div>
-
             {/* Desktop product table */}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -839,7 +818,6 @@ export default function AdminProductsPage() {
                     </th>
                   </tr>
                 </thead>
-
                 <tbody className="divide-y divide-stone-100">
                   {filteredProducts.map((product) => (
                     <tr
@@ -854,7 +832,6 @@ export default function AdminProductsPage() {
                               className="h-full w-full"
                             />
                           </div>
-
                           <div className="min-w-0">
                             <p className="max-w-xs break-words font-semibold text-[#263F2B]">
                               {product.name}
@@ -865,19 +842,15 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                       </td>
-
                       <td className="whitespace-nowrap px-5 py-4 font-medium text-stone-700">
                         {formatCurrency(product.price)}
                       </td>
-
                       <td className="whitespace-nowrap px-5 py-4 text-stone-600">
                         {product.stock}
                       </td>
-
                       <td className="px-5 py-4">
                         <StatusBadge product={product} />
                       </td>
-
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <button
@@ -887,7 +860,6 @@ export default function AdminProductsPage() {
                           >
                             Edit
                           </button>
-
                           {product.isActive && (
                             <button
                               type="button"
@@ -910,7 +882,6 @@ export default function AdminProductsPage() {
           </>
         )}
       </section>
-
       <p className="text-xs leading-5 text-stone-500">
         The dashboard and catalog summary describe the products returned by
         your current API request, which is limited to 50 records. Product
